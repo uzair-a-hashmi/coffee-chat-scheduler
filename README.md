@@ -1,43 +1,44 @@
 # ☕ Coffee Chat Scheduler
 
-A small local web app that checks Google Calendar free/busy status for a
-list of people and suggests meeting times — the same way Google Calendar's
-own "suggested times" sidebar works when you add guests to an event. Built
-for scheduling coffee chats (club recruitment, 1:1 catch-ups, etc.) without
-the back-and-forth of "when are you free?" emails.
+Built a small local web app that checks Google Calendar
+free/busy status for a list of people and suggests meeting times the same way 
+Google Calendar's own "suggested times" sidebar works when you add guests to
+an event. Built for scheduling coffee chats (club recruitment, 1:1 catch-ups,
+etc.) because manually finding and suggesting the best times to coffee chat
+everyone such that none conflict was a nightmare for me.
 
-It only works for people whose free/busy info you can already see in
-Google Calendar — typically anyone in your school's Google Workspace domain
+The tool only works for people whose free/busy info you can already see in
+Google Calendar, meaning anyone in your school's Google Workspace domain
 (most `.edu` accounts have this on by default), or anyone who's explicitly
 shared their calendar with you.
 
 ## Features
 
 - **Two scheduling modes**
-  - **Group** — find times that work for everyone on the list at once.
-  - **Separate 1:1s** — get non-overlapping suggested times for *each*
+  - **Group**: find times that work for everyone on the list at once.
+  - **Separate 1:1s**: get non-overlapping suggested times for *each*
     person individually (so you're never double-booked across different
-    people). Scarcest people (fewest open slots) are matched first, so a
-    hard-to-schedule person isn't starved by a flexible person claiming
-    their only good option.
-- **Your own calendar is included automatically** — toggle-able, so
+    people). Scarcest people (fewest open slots) are matched first.
+    For if you want to find the most optimal time slots for scheduling
+    multiple coffee chats at once without having to manually do it yourself.
+- **Your own calendar is included automatically**: Toggleable. Time 
   suggestions never conflict with your own schedule (or your own
-  availability, for 1:1s, where it's always on).
-- **Date ranges**, not just single days — search "next week," excluding
-  specific weekdays (e.g. always skip Fridays) or specific dates (e.g. give
-  at least a day's notice by excluding tomorrow).
-- **Variable-length suggestions** — set a min/max duration and each
+  availability, for 1:1s, where it's always on). 
+- **Date ranges**: Allows you to search multiple consecutive days
+  instead of just one day. Excludes specific weekdays (e.g. always skip Fridays)
+  or specific dates (e.g. give at least a day's notice by excluding tomorrow).
+- **Variable-length suggestions**: set a min/max duration. Each
   suggestion is as long as the actual free gap allows, instead of forcing
   every suggestion to one fixed length.
 - **Buffer time** around busy events, so nothing gets suggested right up
   against the edge of a class or another meeting.
-- **Time zone aware** — correctly handles DST across multi-day ranges, and
+- **Time zone aware** — correctly handles DST across multi-day ranges and
   can optionally show a second time zone side-by-side for out-of-area
   recipients.
 - **Simple / Advanced UI** — the default view has just the essentials;
   everything else lives behind an "Advanced options" disclosure.
 - **Light/dark theme**, following your system preference with a manual
-  override.
+  override. Because my web design teacher taught me to include this.
 
 ## One-time setup
 
@@ -47,9 +48,9 @@ shared their calendar with you.
    pip install -r requirements.txt
    ```
 
-2. **Create a Google OAuth Client ID** (free, takes ~3 minutes)
+2. **Create a Google OAuth Client ID** (free, takes <= 3 minutes)
    - Go to https://console.cloud.google.com/
-   - Create a new project (any name, e.g. "coffee-chat-scheduler")
+   - Create a new project (name it whatever you want, e.g. "coffee-chat-scheduler")
    - Go to **APIs & Services > Library**, search for **Google Calendar API**, click **Enable**
    - Go to **APIs & Services > OAuth consent screen**
      - User type: **Internal** if your Google account is part of a
@@ -71,10 +72,9 @@ shared their calendar with you.
 
    Open http://localhost:5000, click **Connect Google Calendar**, and sign
    in with the Google account whose calendar view you want to use (i.e. the
-   account that already shows you these people's busy times in the normal
-   Google Calendar UI). The consent screen will ask for two things: viewing
-   free/busy status, and your own email address (used to auto-detect "you"
-   for the self-inclusion feature) — nothing else.
+   account that's in your organization's Google Workspace domain). The consent 
+   screen will ask for two things: viewing free/busy status, and your own email 
+   address (used to auto-detect "you" for the self-inclusion feature, nothing else).
 
 4. Enter one or more recipient email addresses, pick a date range, a
    meeting length, and how many suggestions you want, then click
@@ -98,10 +98,10 @@ static/style.css                An earlier design (not currently used) — kept
   connect, so you won't need to re-authenticate every time. Delete them to
   disconnect.
 - Nothing is sent anywhere except directly to Google's API from your own
-  machine — this runs entirely locally, with no external server or
+  machine. Runs entirely locally with no external server or
   database involved.
-- This is a personal-use local tool, not a hosted multi-user service —
-  each person who wants to use it clones this repo and connects their own
+- This is a personal-use local tool, not a hosted multi-user service.
+  Each person who wants to use it must clone this repo and connect their own
   Google account.
 - If a person shows "Couldn't read this calendar," it means Google isn't
   giving you visibility into their free/busy status (they're outside your
@@ -109,4 +109,4 @@ static/style.css                An earlier design (not currently used) — kept
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. see [LICENSE](LICENSE).
