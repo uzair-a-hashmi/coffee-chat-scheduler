@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Coffee Chat Scheduler</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style-editorial.css') }}?v={{ static_version('style-editorial.css') }}">
+  <script>
+    // Applied inline (not in the external, deferred app.js) so the theme
+    // override is set before first paint — otherwise the page would flash
+    // the wrong theme for a moment while app.js loads.
+    (function () {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'dark' || saved === 'light') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="masthead">
+      <h1>☕ Coffee Chat Scheduler</h1>
+      <p class="subtitle">Checks free/busy status on Google Calendar for the emails you enter, the same way Google Calendar's own guest sidebar does. Works best for people in your school's Google Workspace domain, or anyone who's shared their calendar with you.</p>
+    </div>
+    <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle light / dark theme">◐</button>
+  </div>
+
+  {% macro info(text) -%}
+  <span class="info-icon" tabindex="0">i<span class="tooltip-text">{{ text }}</span></span>
+  {%- endmacro %}
+
+  {% if not connected %}
+    <div class="card connect">
+      <p>Connect your Google account to get started.</p>
+      <a href="{{ url_for('authorize') }}"><button>Connect Google Calendar</button></a>
+    </div>
+  {% else %}
+    <div class="card">
+      <form method="POST" action="{{ url_for('check') }}" id="check-form">
+
+        <label>What are you scheduling? {{ info("Group meeting: finds time slots where everyone you list (plus you, if included) is free at the same time — good for one shared meeting with several people. Separate 1:1s: instead treats each person as a separate one-on-one meeting with you, and makes sure none of the suggested times overlap each other, so you're never double-booked across the different people. It automatically offers times to whoever has the least availability first, so a hard-to-schedule person doesn't get shut out by an easy-to-schedule person claiming their only open slot.") }}</label>
+        <div class="mode-picker">
+          <label id="mode-label-group" class="{% if schedule_mode != 'individual' %}active{% endif %}">
+            <input type="radio" name="schedule_mode" value="group" {% if schedule_mode != 'individual' %}checked{% endif %}>
+            One meeting with everyone below
+          </label>
+          <label id="mode-label-individual" class="{% if schedule_mode == 'individual' %}active{% endif %}">
+            <input type="radio" name="schedule_mode" value="individual" {% if schedule_mode == 'individual' %}checked{% endif %}>
+            Separate 1:1s with each person
+          </label>
+        </div>
+
+        <label>Recipient email address(es) {{ info("The Google Calendar email address(es) of the people you want to meet with, separated by commas or new lines. This only works for people whose free/busy status you can already see in Google Calendar — typically anyone in your school's Google Workspace domain (most .edu accounts), or anyone who's explicitly shared their calendar with you. If a calendar can't be read, that person will be flagged instead of silently breaking the results.") }}</label>
+        <textarea name="emails" rows="2" placeholder="person1@school.edu, person2@school.edu">{{ emails or '' }}</textarea>
+
+        <div class="row">
+          <div>
+            <label>From date {{ info("The first day of the date range to search for available times. Every day in the range (minus anything you exclude in Advanced options) gets checked.") }}</label>
+            <input type="date" name="start_date" value="{{ start_date or '' }}" required>
+          </div>
+          <div>
+            <label>Through date {{ info("The last day of the date range to search (inclusive). Keep the range reasonably tight — a full semester will be slow and mostly irrelevant, since plans that far out usually change anyway.") }}</label>
+            <input type="date" name="end_date" value="{{ end_date or '' }}" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div id="simple_duration_field">
+            <label>Meeting length (minutes) {{ info("How long each suggested coffee chat should be, in minutes. Under Advanced options you can instead give a range (e.g. 30 to 60) so suggestion length adapts to how much open time is actually available, instead of every suggestion being forced to the exact same length.") }}</label>
+            <input type="number" id="simple_duration" min="5" step="5" value="{{ min_duration_minutes or '60' }}">
+            <noscript><small>JavaScript is off, so this field can't sync automatically — set the meeting length directly in Advanced options below instead.</small></noscript>
+          </div>
+          <div>
+            <label id="num_suggestions_label">{% if schedule_mode == 'individual' %}Suggestions per person{% else %}How many suggestions?{% endif %} {{ info("How many candidate time slots to suggest. In group mode this is a shared total across the whole meeting. In 1:1 mode, this many suggestions are attempted for EACH person individually — nobody's count eats into anyone else's, but the actual times offered to different people never overlap with each other.") }}</label>
+            <input type="number" name="num_suggestions" min="1" step="1" value="{{ num_suggestions or '3' }}">
+          </div>
+        </div>
+
+        <details id="advanced-toggle" {% if advanced_active %}open{% endif %}>
+          <summary>Advanced options</summary>
+          <div class="advanced-body">
+
+            <div class="checkbox-row" id="include_self_row" style="display: {% if schedule_mode == 'individual' %}none{% else %}flex{% endif %};">
+              <input type="checkbox" name="include_self" id="include_self" value="1" {% if include_self is not defined or include_self %}checked{% endif %}>
+              <label for="include_self">Also check my own calendar{% if self_email %} ({{ self_email }}){% endif %} {{ info("When checked, your own Google Calendar is included in the availability search, so nothing gets suggested when you yourself are already busy. In 1:1 mode this is always on — you're in every one-on-one meeting by definition, so it can't be turned off there.") }}</label>
+            </div>
+            <p class="warn" id="include_self_forced_note" style="display: {% if schedule_mode == 'individual' %}block{% else %}none{% endif %};">Your calendar is always included for 1:1s — you're in every meeting.</p>
+
+            <div class="row">
+              <div>
+                <label>Earliest time each day {{ info("The earliest clock time, on each day in your date range, that a suggestion is allowed to start. Applies the same way to every day in the range — for example 9:00 AM means no suggestions before 9:00 AM on any day, even a Saturday.") }}</label>
+                <input type="time" name="start_time" value="{{ start_time or '09:00' }}">
+              </div>
+              <div>
+                <label>Latest time each day {{ info("The latest clock time, on each day in your date range, that a suggestion is allowed to end by. Defaults to standard business hours (9 AM–5 PM); widen it if you're open to evening or early-morning chats.") }}</label>
+                <input type="time" name="end_time" value="{{ end_time or '17:00' }}">
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label>Suggestion length: shortest (min) {{ info("The minimum acceptable length for a suggested slot, in minutes. Any open gap shorter than this is skipped entirely rather than being offered as a too-short suggestion.") }}</label>
+                <input type="number" name="min_duration_minutes" id="min_duration_minutes" min="5" step="5" value="{{ min_duration_minutes or '60' }}">
+              </div>
+              <div>
+                <label>Suggestion length: longest (min) {{ info("The maximum length a single suggestion will be, in minutes. Each suggestion is made as long as the surrounding free gap allows, capped at this number — so a 90-minute gap with a max of 60 produces a 60-minute suggestion (and possibly a second, shorter one using the leftover time), while a 40-minute gap just produces a 40-minute suggestion. Set this equal to 'shortest' for uniform, fixed-length suggestions.") }}</label>
+                <input type="number" name="max_duration_minutes" id="max_duration_minutes" min="5" step="5" value="{{ max_duration_minutes or '60' }}">
+              </div>
+            </div>
+
+            <label>Buffer around busy events (minutes) {{ info("Adds a cushion of this many minutes around every busy block (on your calendar and everyone else's) before looking for free time — so a suggestion can never start or end right at the exact edge of something else. For example, with a 15-minute buffer, a class ending at 1:00 PM means nothing gets suggested until 1:15 PM at the earliest, giving you realistic time to travel or wrap up. Set to 0 to disable.") }}</label>
+            <input type="number" name="buffer_minutes" min="0" step="5" value="{{ buffer_minutes or '0' }}">
+
+            <label>Also show suggested times in this time zone {{ info("Purely a display option — it doesn't change which times get suggested, only how they're labeled. When set, each suggestion shows your local time and the equivalent time in the selected zone side by side (e.g. '2:00 PM → 11:00 AM Pacific'), which is useful when the recipient is somewhere else in the country or world. If a converted time lands on a different calendar day (e.g. very late at night), the date is called out explicitly to avoid confusion.") }}</label>
+            <select name="display_tz">
+              <option value="">— just my own time zone —</option>
+              {% for value, name in timezone_choices %}
+                <option value="{{ value }}" {% if display_tz == value %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+
+            <fieldset>
+              <legend id="per_day_legend">Suggestions per day{% if schedule_mode == 'individual' %} (per person){% endif %} {{ info("Controls how suggestions are spread out across the date range. 'No preference' just picks whatever mix of days produces the best spread overall. Turning that off lets you cap how many suggestions can land on any single day (e.g. at most 1 per day, so you get variety across the week instead of several options crammed into one day) — the overall total from 'how many suggestions' is still the hard ceiling either way.") }}</legend>
+              <div class="checkbox-row">
+                <input type="checkbox" name="per_day_no_pref" id="per_day_no_pref" value="1" {% if per_day_no_pref is not defined or per_day_no_pref %}checked{% endif %}>
+                <label for="per_day_no_pref">No preference — just spread suggestions across the whole range</label>
+              </div>
+              <div id="per_day_count_wrap" style="display: {% if per_day_no_pref is not defined or per_day_no_pref %}none{% else %}block{% endif %};">
+                <label>Suggestions per day (e.g. 1 or 2)</label>
+                <input type="number" name="per_day_count" min="1" step="1" value="{{ per_day_count or '1' }}">
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Skip certain days {{ info("Days excluded here are removed from the search entirely — no suggestions will ever be offered on them, even if they'd otherwise be wide open.") }}</legend>
+              <label>Skip these days of the week {{ info("Recurring weekday exclusion — e.g. check 'Fri' to never get suggestions on any Friday in the range, useful for a standing commitment like a weekly class or a social plan.") }}</label>
+              <div class="weekday-picker">
+                {% for idx, name in [(0,'Mon'),(1,'Tue'),(2,'Wed'),(3,'Thu'),(4,'Fri'),(5,'Sat'),(6,'Sun')] %}
+                  <label><input type="checkbox" name="exclude_weekday" value="{{ idx }}" {% if exclude_weekdays and idx in exclude_weekdays %}checked{% endif %}> {{ name }}</label>
+                {% endfor %}
+              </div>
+              <label>Skip specific dates {{ info("One-off date exclusions, as YYYY-MM-DD separated by commas. Useful for giving advance notice — e.g. exclude tomorrow's date so the recipient always has at least a day's heads-up before any suggested time.") }}</label>
+              <input type="text" name="exclude_dates" placeholder="2026-08-24, 2026-08-28" value="{{ exclude_dates or '' }}">
+            </fieldset>
+
+          </div>
+        </details>
+
+        <input type="hidden" name="tz_name" id="tz_name" value="UTC">
+        <button type="submit">Check availability</button>
+      </form>
+
+      <div class="skeleton-loader" id="skeleton-loader" aria-hidden="true" style="display:none;">
+        <div class="skeleton-line w-40"></div>
+        <div class="skeleton-line w-80"></div>
+        <div class="skeleton-line w-60"></div>
+      </div>
+    </div>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if suggestions %}
+      <div class="suggestions">
+        <h2>☕ Suggested times</h2>
+        {% if suggestions.slots %}
+          {% for slot in suggestions.slots %}<span class="slot-tag">{{ slot }}</span>{% endfor %}
+          {% if suggestions.found < suggestions.requested %}
+            <p class="warn">Only found {{ suggestions.found }} slot(s) that work for everyone — you asked for {{ suggestions.requested }}. Try a shorter duration, a wider date range, or fewer people.</p>
+          {% endif %}
+        {% else %}
+          <p class="warn">No overlapping free time of that length was found for everyone in this range. Try a shorter duration, a wider date range, or fewer exclusions.</p>
+        {% endif %}
+        {% if suggestions.any_unreadable %}
+          <p class="warn">Note: one or more calendars couldn't be read, so they weren't included in this overlap.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if individual_results %}
+      <div class="suggestions">
+        <h2>☕ Suggested 1:1 times</h2>
+        <p><small>Scarcest people (fewest open slots) were matched first, and no two people below are ever offered the same time — once a slot is suggested to one person, it's off the table for everyone else.</small></p>
+        {% for r in individual_results %}
+          <div class="person-block">
+            <h3>{{ r.email }}</h3>
+            {% if r.unreadable %}
+              <p class="warn">Couldn't read this calendar — they may not share free/busy info with you.</p>
+            {% elif r.slots %}
+              {% for slot in r.slots %}<span class="slot-tag">{{ slot }}</span>{% endfor %}
+              {% if r.found < r.requested %}
+                <p class="warn">Only found {{ r.found }} open slot(s) for this person after avoiding conflicts with others already suggested — you asked for {{ r.requested }}.</p>
+              {% endif %}
+            {% else %}
+              <p class="warn">No time worked for this person in this range, after avoiding times already suggested to others.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if results %}
+      <details>
+        <summary>Show full free/busy breakdown by day</summary>
+        {% for day in results %}
+          <div class="day-block">
+            <h3>{{ day.date }}</h3>
+            {% for r in day.people %}
+              <div class="person-row">
+                <div class="who">{{ r.email }}</div>
+                {% if r.unreadable %}
+                  <p class="warn">Couldn't read this calendar.</p>
+                {% else %}
+                  <p><strong class="free">Free:</strong>
+                    {% if r.free %}
+                      {% for slot in r.free %}<span class="tag">{{ slot }}</span>{% endfor %}
+                    {% else %}<span class="warn">None</span>{% endif %}
+                  </p>
+                  <p><strong class="busy">Busy:</strong>
+                    {% if r.busy %}
+                      {% for slot in r.busy %}<span class="tag">{{ slot }}</span>{% endfor %}
+                    {% else %}<span class="tag">None</span>{% endif %}
+                  </p>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </details>
+    {% endif %}
+  {% endif %}
+
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ static_version('app.js') }}" defer></script>
+</body>
+</html>
