@@ -32,10 +32,10 @@ shared their calendar with you.
   every suggestion to one fixed length.
 - **Buffer time** around busy events, so nothing gets suggested right up
   against the edge of a class or another meeting.
-- **Time zone aware** — correctly handles DST across multi-day ranges and
+- **Time zone aware**: correctly handles DST across multi-day ranges and
   can optionally show a second time zone side-by-side for out-of-area
   recipients.
-- **Simple / Advanced UI** — the default view has just the essentials;
+- **Simple / Advanced UI**: the default view has just the essentials;
   everything else lives behind an "Advanced options" disclosure.
 - **Light/dark theme**, following your system preference with a manual
   override. Because my web design teacher taught me to include this.
