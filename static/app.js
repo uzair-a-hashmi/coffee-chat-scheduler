@@ -120,9 +120,18 @@ function positionTooltip(icon) {
     tip.style.transform = 'translateX(calc(-50% + ' + shiftX + 'px))';
   }
 
-  // Not enough room above the icon (e.g. near the top of the page) — flip
-  // it to open downward instead.
-  if (rect.top < margin) {
+  // Not enough room above the icon to open upward without being cut off —
+  // flip it to open downward instead. "Not enough room" means either the
+  // viewport's top edge, or the top edge of the nearest ancestor that
+  // clips overflow (e.g. #advanced-toggle, which needs overflow:hidden to
+  // keep its rounded corners) — a tooltip can be fully inside the viewport
+  // and still get silently clipped by a closer ancestor's boundary.
+  var clipTop = margin;
+  var clipAncestor = icon.closest('#advanced-toggle');
+  if (clipAncestor) {
+    clipTop = Math.max(clipTop, clipAncestor.getBoundingClientRect().top + margin);
+  }
+  if (rect.top < clipTop) {
     tip.style.bottom = 'auto';
     tip.style.top = '135%';
   }
