@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style-editorial.css') }}?v={{ static_version('style-editorial.css') }}">
   <script>
     // Applied inline (not in the external, deferred app.js) so the theme
-    // override is set before first paint — otherwise the page would flash
-    // the wrong theme for a moment while app.js loads.
+    // override is set before first paint. otherwise the page would flash
+    // the wrong theme for a moment while app.js loads
     (function () {
       var saved = localStorage.getItem('theme');
       if (saved === 'dark' || saved === 'light') {
@@ -21,7 +21,7 @@
 <body>
   <div class="top-bar">
     <div class="masthead">
-      <h1>☕ Coffee Chat Scheduler</h1>
+      <h1>Coffee Chat Scheduler</h1>
       <p class="subtitle">Checks free/busy status on Google Calendar for the emails you enter, the same way Google Calendar's own guest sidebar does. Works best for people in your school's Google Workspace domain, or anyone who's shared their calendar with you.</p>
     </div>
     <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle light / dark theme">◐</button>

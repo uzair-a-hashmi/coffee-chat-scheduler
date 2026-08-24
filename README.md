@@ -1,4 +1,4 @@
-# ☕ Coffee Chat Scheduler
+# Coffee Chat Scheduler
 
 Built a small local web app that checks Google Calendar
 free/busy status for a list of people and suggests meeting times the same way 
